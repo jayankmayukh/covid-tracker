@@ -6,7 +6,7 @@ import Summary from './components/Summary';
 export default (
   <Router>
         <Switch>
-            <Route path="/graph">
+            <Route path="/">
                 <Graph/>
             </Route>
             <Route path="/covid-19_summary">
