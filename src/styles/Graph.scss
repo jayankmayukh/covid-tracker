@@ -1,0 +1,16 @@
+.main-chart-container{
+  width: 100%;
+  height: 600px;
+  @media (pointer: coarse) {
+    height: 100%;
+  }
+}
+.fullscreen-enabled{
+  .main-chart-container{
+    height: 100%;
+  }
+}
+
+.App {
+  margin-top: 10px;
+}

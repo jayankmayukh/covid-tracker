@@ -13,6 +13,10 @@ export default class Helpers {
         }
     }
 
+    isMobile(){
+        return (typeof window.orientation !== "undefined");
+    }
+
     getSeries(country, key){
         let series = [];
         let operations;
@@ -40,7 +44,8 @@ export default class Helpers {
                 text: title,
             },
             lineWidth: 1,
-            showEmpty: false
+            showEmpty: false,
+            allowDecimals: false
         }
     }
 
@@ -56,9 +61,10 @@ export default class Helpers {
             credits: {
                 enabled: false
             },
-            chart: {
-                width: window.innerWidth * 0.80,
-                height: Math.max(window.innerWidth * 0.95 * 0.38, 400),
+            chart: this.isMobile() ? {
+                animation: false
+            } : {
+                animation: false
             },
             yAxis: [
                 this.getBasicAxis()
