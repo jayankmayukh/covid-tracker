@@ -170,8 +170,8 @@ export default class Graph extends Component {
                             <Grid.Column>
                                 <Dropdown onChange={(_e, {value})=>{this.setState({xAxis: value})}}
                                             ref={(a)=>{this.xAxisDropdown = a}}
-                                            options={[{text: 'Days Since First 100 Cases', value: 0},
-                                                    {text: 'Date', value: 1}]} selection fluid
+                                            options={[{text: 'Days Since First 100 Cases', value: 1},
+                                                    {text: 'Date', value: 0}]} selection fluid
                                                     placeholder="X-Axis"/>
                             </Grid.Column>
                         </Grid.Row>
