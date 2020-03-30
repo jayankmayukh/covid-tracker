@@ -73,6 +73,7 @@ export default class Graph extends Component {
                 });
             });
             this.chart.chart.redraw();
+            this.clearForm();
             if(countriesSkipped.length){
                 alert(`${countriesSkipped.join(', ')} ${countriesSkipped.length === 1 ? 'does' : 'do'} not have enough data for given settings.`)
             }
