@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import './App.scss';
 import Routes from './routes';
+import { Header, Icon } from 'semantic-ui-react';
 
 class App extends Component{
 
@@ -37,9 +38,12 @@ class App extends Component{
     render(){
         return (
             <div className="App">
-                <header>
-                    <h1>Covid-19 Data Tracker</h1>
-                </header>
+                <Header as="h1" color="blue">
+                    <Header.Content>
+                        <Icon name="chart bar outline"/>
+                        Covid-19 Tracker
+                    </Header.Content>
+                </Header>
                 <main>
                     {this.state.dataLoaded ? Routes : <div className="loading">Loading...</div>}
                 </main>

@@ -1,35 +1,43 @@
-import React, {Component} from 'react';
-import AutoComplete from 'react-autocomplete';
+import React, {Component, Fragment} from 'react';
 import Highcharts from 'highcharts';
 import HighchartsReact from 'highcharts-react-official';
 import Helpers from '../Helpers';
+import '../styles/Graph.scss';
+import Fullscreen from "react-full-screen";
+import { Dropdown, Grid, Button, Container, Menu, Icon} from 'semantic-ui-react';
 
 export default class Graph extends Component {
     constructor(props){
         super(props);
-        this.helperInterface = new Helpers();
+        this.helper = new Helpers();
         this.state = {
-            chartOptions: this.helperInterface.getBasicChartConfig('Covid-19 Data Tracker'),
-            country: '',
-            i: 0
+            chartOptions: this.helper.getBasicChartConfig(),
+            countries: [],
+            dataTypes: [],
+            log: false,
+            days: false,
+            i: 0,
+            isFull: false,
         }
-        this.onSubmit = this.onSubmit.bind(this);
-        this.onClear = this.onClear.bind(this);
     }
 
-    itemsForAutocomplete(){
-        let items = [];
-        Object.keys(window.data).forEach((value)=>{
-            items.push({id: value, label: value});
-        });
-        return items;
-    }
-
-    dataTypeSelectEntries(){
+    countryEntries(){
         let elemList = [];
-        Object.keys(this.helperInterface.dataTypesDict).forEach((name, i) => {
+        Object.keys(window.data).sort((a,b)=>{
+            let countA = window.data[a][window.data[a].length - 1].confirmed;
+            let countB = window.data[b][window.data[b].length - 1].confirmed;
+            return countB - countA;
+        }).forEach((name)=>{
+            elemList.push({text: name, value: name});
+        });
+        return elemList;
+    }
+
+    dataTypeEntries(){
+        let elemList = [];
+        Object.keys(this.helper.dataTypesDict).forEach((name) => {
             elemList.push(
-                <option key={i} value={name}>{name}</option>
+                {text: name, value: name}
             ); 
         });
         return elemList;
@@ -37,7 +45,7 @@ export default class Graph extends Component {
 
     updateYAxis(){
         let yAxisType = this.logCheckbox.checked ? 'logarithmic' : 'linear';
-        let newYaxisSettings = this.helperInterface.getBasicAxis();
+        let newYaxisSettings = this.helper.getBasicAxis();
         newYaxisSettings.type = yAxisType;
         this.chart.chart.yAxis[0].update(newYaxisSettings);
     }
@@ -48,28 +56,25 @@ export default class Graph extends Component {
 
     onSubmit(){
         try {
-            let seriesInput = {
-                country: this.state.country,
-                xAxis: this.daysCheckbox.checked ? 1 : 0,
-                dataType: this.dataTypeSelect.value
-            }
-            if(!Object.keys(window.data).includes(this.state.country)){
-                alert('Please select country from suggestions.');
-                return;
-            }
-            let seriesConfig = this.helperInterface.getSeriesForChart(seriesInput);
-            if(seriesConfig.data && seriesConfig.data.length){
-                this.chartContainer.style = {display: 'block'}
-                this.chart.chart.addSeries(seriesConfig);
-                let points = 0
-                for(let i=0; i < this.chart.chart.series.length; i++){
-                    points += this.chart.chart.series[i].data.length;
-                }
-                if(points > 100){
-                    this.chart.chart.update({chart: {animation: false}});
-                }
-            } else {
-                alert('Sorry! There is not enough data to create this graph.')
+            let countriesSkipped = [];
+            this.state.countries.forEach((country)=>{
+                this.state.dataTypes.forEach((dataType)=>{
+                    let seriesInput = {
+                        country,
+                        xAxis: this.state.xAxis,
+                        dataType,
+                    }
+                    let seriesConfig = this.helper.getSeriesForChart(seriesInput);
+                    if(seriesConfig.data && seriesConfig.data.length){
+                        this.chart.chart.addSeries(seriesConfig, false);
+                    } else {
+                        countriesSkipped.push(country);
+                    }
+                });
+            });
+            this.chart.chart.redraw();
+            if(countriesSkipped.length){
+                alert(`${countriesSkipped.join(', ')} ${countriesSkipped.length === 1 ? 'does' : 'do'} not have enough data for given settings.`)
             }
         } catch (error) {
             console.error(error);
@@ -77,13 +82,30 @@ export default class Graph extends Component {
         }
     }
 
+    clearForm(){
+        this.setState({countries: [], xAxis: undefined, dataTypes: []});
+        this.countriesDropdown.clearValue();
+        this.dataTypeDropdown.clearValue();
+        this.xAxisDropdown.clearValue();
+    }
+
     onClear(){
-        try {
-            this.setState({i: this.state.i + 1})
-        } catch (error) {
-            console.error(error);
-            alert('Oops! something went wrong.');
-        }
+        this.setState({i: this.state.i + 1});
+        this.clearForm();
+    }
+
+    yAxisUpdate(log){
+        this.setState({log},()=>{
+            this.chart.chart.yAxis[0].update({type: this.state.log ? 'logarithmic' : 'linear'});
+        });
+    }
+
+    onFull = ()=>{
+        this.setState({isFull: true}, ()=>{
+            if(this.helper.isMobile())
+                window.screen.orientation.lock('landscape');
+            this.chart.chart.reflow()
+        });
     }
 
     runFromQuery(){
@@ -106,15 +128,14 @@ export default class Graph extends Component {
                         query.forEach((value, i)=>{
                             query[i] = value.split('-').join(' ');
                         });
-                        if(query[1] && Object.keys(this.helperInterface.dataTypesDict).includes(query)){
+                        if(query[1] && Object.keys(this.helper.dataTypesDict).includes(query)){
                             defaultConfig.dataType = query[1];
                         }
                         if(query[2] === 'Since First 100 Cases'){
                             defaultConfig.xAxis = 1;
                         }
-                        let seriesConfig = this.helperInterface.getSeriesForChart(defaultConfig);
+                        let seriesConfig = this.helper.getSeriesForChart(defaultConfig);
                         if(seriesConfig.data && seriesConfig.data.length){
-                            this.chartContainer.style = {display: 'block'}
                             this.chart.chart.addSeries(seriesConfig);
                         }
                     }
@@ -127,87 +148,68 @@ export default class Graph extends Component {
 
     render(){
         return (
-            <div className="main-graph-tool-comtainer">
-                <div className="controls" ref={(inp)=>this.controls = inp}>
-                    <div className="country control-input">
-                        Country: <br/>
-                        <AutoComplete
-                            items={this.itemsForAutocomplete()}
-                            shouldItemRender={(item, value) => {
-                                return item.label.toLowerCase().indexOf(value.toLowerCase()) === 0;
-                            }}
-                            menuStyle={
-                                {
-                                    borderRadius: '3px',
-                                    boxShadow: '0 2px 12px rgba(0, 0, 0, 0.1)',
-                                    background: 'rgba(255, 255, 255, 0.9)',
-                                    padding: '2px 0',
-                                    fontSize: '90%',
-                                    position: 'fixed',
-                                    overflow: 'auto',
-                                    maxHeight: '50%',
-                                    zIndex: 10
-                                }
-                            }
-                            getItemValue={item => item.label}
-                            renderItem={(item, highlighted) =>{
-                                    return <div key={item.id}
-                                                style={{ backgroundColor: highlighted ? '#eee' : 'white'}}>
-                                                {item.label} </div>
-                                }
-                            }
-                            value={this.state.country}
-                            onChange={e => this.setState({ country: e.target.value })}
-                            onSelect={value => this.setState({ country: value })}
+            <Fragment>
+                <Container>
+                    <Grid stackable columns='equal'>
+                        <Grid.Row>
+                            <Grid.Column>
+                                <Dropdown ref={(a)=>{this.countriesDropdown = a}} 
+                                            onChange={(_e, {value})=>{this.setState({countries: value})}}
+                                            options={this.countryEntries()} multiple search
+                                            selection closeOnChange clearable fluid placeholder="Countries"/>
+                            </Grid.Column>
+                        </Grid.Row>
+                        <Grid.Row>
+                            <Grid.Column width={12}>
+                                <Dropdown onChange={(_e, {value})=>{this.setState({dataTypes: value});}}
+                                            ref={(a)=>{this.dataTypeDropdown = a}}
+                                            options={this.dataTypeEntries()} multiple search
+                                            selection closeOnChange clearable fluid placeholder="Data Types"/>
+                            </Grid.Column>
+                            <Grid.Column>
+                                <Dropdown onChange={(_e, {value})=>{this.setState({xAxis: value})}}
+                                            ref={(a)=>{this.xAxisDropdown = a}}
+                                            options={[{text: 'Days Since First 100 Cases', value: 0},
+                                                    {text: 'Date', value: 1}]} selection fluid
+                                                    placeholder="X-Axis"/>
+                            </Grid.Column>
+                        </Grid.Row>
+                        <Grid.Row>
+                            <Grid.Column>
+                                <Button primary fluid onClick={()=>this.onSubmit()}>Add Graph</Button>
+                            </Grid.Column>
+                            <Grid.Column>
+                                <Button basic color='red' fluid onClick={()=>this.onClear()}>Clear Graph</Button>
+                            </Grid.Column>
+                        </Grid.Row>
+                    </Grid>
+                    <Menu tabular attached="top">
+                        <Menu.Item
+                            name='Linear Scale'
+                            active={!this.state.log}
+                            onClick={()=>this.yAxisUpdate(false)}
                         />
-                    </div>
-                    <div className="x-axis-type control-input">
-                        X-Axis: <br/>
-                        <input type='checkbox' className="switch"
-                               ref={(inp)=>{this.daysCheckbox = inp;}} 
-                               onClick={(e)=>{this.dateCheckbox.checked = !this.daysCheckbox.checked;}}
-                               defaultChecked/> 
-                        <label>Days Since First 100 cases</label> <br/>
-                        <input type='checkbox' className="switch"
-                               ref={(inp)=>{this.dateCheckbox = inp;}}
-                               onClick={(e)=>{this.daysCheckbox.checked = !this.dateCheckbox.checked}}/>
-                        <label>Date</label>
-                    </div>
-                    <div className="y-axis-type control-input">
-                        Y-Axis: <br/>
-                        <input type='checkbox' className="switch"
-                               ref={(inp)=>{this.logCheckbox = inp}} 
-                               onClick={(e)=>{
-                                   this.linearCheckbox.checked = !this.logCheckbox.checked;
-                                   this.updateYAxis();
-                               }}/> 
-                        <label>Logarithmic</label> <br/>
-                        <input type='checkbox' className="switch"
-                               ref={(inp)=>{this.linearCheckbox = inp;}}
-                               onClick={(e)=>{
-                                   this.logCheckbox.checked = !this.linearCheckbox.checked;
-                                   this.updateYAxis();
-                               }}
-                               defaultChecked/>
-                        <label>Linear</label>
-                    </div>
-                    <div className="datatype control-input">
-                        Data type: <br/>
-                        <select ref={(inp)=>{this.dataTypeSelect = inp}} className="dropdown">
-                            {this.dataTypeSelectEntries()}
-                        </select>
-                    </div>
-                    <div className="submit control-input">
-                        <button onClick={this.onSubmit}>Add Graph</button> <br/>
-                        <button onClick={this.onClear}>Clear Graph</button>
-                    </div>
-                </div>
-                <div className="main-chart-container" style={{display: "none"}} ref={(inp)=>{this.chartContainer = inp;}}>
-                    <HighchartsReact highchrats={Highcharts}
-                                     options={this.state.chartOptions}
-                                     ref={(chart)=>{this.chart = chart}} key={this.state.i}/>
-                </div>
-            </div>
+                        <Menu.Item
+                            name='Log Scale'
+                            active={this.state.log}
+                            onClick={()=>this.yAxisUpdate(true)}
+                        />
+                        <Menu.Menu position='right'>
+                            <Menu.Item onClick={this.onFull}>
+                                <Icon name="expand arrows alternate"></Icon>
+                            </Menu.Item>
+                        </Menu.Menu>
+                    </Menu>
+                    <Fullscreen enabled={this.state.isFull}
+                                onChange={(isFull)=>{this.setState({isFull}, this.chart.chart.reflow())}}>
+                        <HighchartsReact highchrats={Highcharts}
+                                        options={this.state.chartOptions}
+                                        ref={(chart)=>{this.chart = chart}} key={this.state.i}
+                                        containerProps={{className: 'main-chart-container'}}
+                        />
+                    </Fullscreen>
+                </Container>
+           </Fragment>
         );
     }
 }
