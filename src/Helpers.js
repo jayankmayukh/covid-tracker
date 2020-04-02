@@ -17,19 +17,25 @@ export default class Helpers {
         return (typeof window.orientation !== "undefined");
     }
 
-    getSeries(country, key){
+    getSeries(country, key, xAxis){
         let series = [];
         let operations;
         [key, operations] = [key.split(':')[0], key.split(':').slice(1)];
         for(let value of window.data[country]){
-            let timestamp = Date.parse(value.date) - this.tzOffset;
+            let xVal;
+            if(xAxis === 2){
+                xVal = value.confirmed;
+                if (xVal < 100) continue;
+            } else{
+                xVal = Date.parse(value.date) - this.tzOffset;
+            }
             if(value[key]){
-                series.push([timestamp, value[key]]);
+                series.push([xVal, value[key]]);
             } else if(key === 'active'){
                 let total = value.confirmed;
                 let closed = value.recovered + value.deaths;
                 let active = total - closed;
-                series.push([timestamp, active]);
+                series.push([xVal, active]);
             }
         }
         for(let operation of operations){
@@ -56,14 +62,16 @@ export default class Helpers {
                     type: 'datetime',
                     ...this.getBasicAxis('Date')
                 },
-                this.getBasicAxis('Days Since First 100 cases')
+                this.getBasicAxis('Days Since First 100 cases'),
+                {
+                    type: 'logarithmic',
+                    ...this.getBasicAxis('Total Cases Since First 100 Cases (Log Scale)')
+                }
             ],
             credits: {
                 enabled: false
             },
-            chart: this.isMobile() ? {
-                animation: false
-            } : {
+            chart: {
                 animation: false
             },
             yAxis: [
@@ -75,7 +83,8 @@ export default class Helpers {
             plotOptions:{
                 series: {
                     marker: {
-                        symbol: 'circle'
+                        // symbol: 'circle'
+                        enabled: false
                     }
                 }
             },
@@ -120,6 +129,20 @@ export default class Helpers {
                         }
                     }
                     break;
+                case 'movingAverage':
+                    let sum = 0;
+                    let N = 7; 
+                    for(let i=0; i < series.length; i++){
+                        sum += series[i][1];
+                        if(series[i-N]){
+                            sum -= series[i-N][1];
+                        }
+                        if(i >= N - 1){
+                            let avg = Math.round(sum/N);
+                            newSeries.push([series[i][0], avg]);
+                        }
+                    }
+                    break;
             }
         }
         return newSeries;
@@ -153,13 +176,17 @@ export default class Helpers {
     }
 
     getSeriesForChart(inp){
-        let series = this.getSeries(inp.country, this.dataTypesDict[inp.dataType]);
+        let series = this.getSeries(inp.country, this.dataTypesDict[inp.dataType], inp.xAxis);
         if(inp.xAxis === 1){
             series = this.dataSinceNCases(series, inp.country);
             series = this.applySeriesOp(series, 'xToDayCount')
         }
+        if(inp.movingAverage){
+            series = this.applySeriesOp(series, 'movingAverage');
+        }
+        let xAxisNames = ['Date Wise', 'Since First 100 Cases', 'Total Cases (logarithmic scale)'];
         return {
-            name: `${inp.country} - ${inp.dataType} - ${inp.xAxis ? 'Since First 100 Cases': 'Date Wise'}`,
+            name: `${inp.country} - ${inp.dataType} - ${xAxisNames[inp.xAxis]}`,
             data: series,
             xAxis: inp.xAxis
         }
