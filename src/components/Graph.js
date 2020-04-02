@@ -155,11 +155,12 @@ export default class Graph extends Component {
 
     share = ()=>{
         let params = encodeURI(JSON.stringify(this.plotted));
-        let url = window.location.host + '?q=' + params + '&l=' + (this.state.log ? 1 : 0);
+        let query = '?q=' + params + '&l=' + (this.state.log ? 1 : 0);
+        let url = window.location.host;
         if(window.navigator.share){
             this.setState({sharing: true}, ()=>{
                 window.navigator.share({
-                    url,
+                    url: query,
                     text: 'See, compare and analyze Covid - 19 statistics including total case, active cases, deaths, recoveries, etc. Various options like plotting on log scale, smothening using moving average, plotting against total cases are also available.\n',
                     title: 'Covid - 19 Data Tracker'
                 }).finally(()=>{
