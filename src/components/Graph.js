@@ -1,10 +1,10 @@
 import React, {Component, Fragment} from 'react';
-import Highcharts from 'highcharts';
+import Highcharts, { grep } from 'highcharts';
 import HighchartsReact from 'highcharts-react-official';
 import Helpers from '../Helpers';
 import '../styles/Graph.scss';
 import Fullscreen from "react-full-screen";
-import { Dropdown, Grid, Button, Container, Menu, Icon} from 'semantic-ui-react';
+import { Dropdown, Grid, Button, Container, Menu, Icon, Checkbox, Segment, Popup, Loader} from 'semantic-ui-react';
 
 export default class Graph extends Component {
     constructor(props){
@@ -15,9 +15,30 @@ export default class Graph extends Component {
             countries: [],
             dataTypes: [],
             log: false,
-            days: false,
             i: 0,
             isFull: false,
+            sharing: false
+        };
+        this.plotted = [];
+        this.xAxisDropdownList = [
+            {text: 'Days Since First 100 Cases', value: 1},
+            {text: 'Date', value: 0},
+            {text: 'Total Cases (Log Scale) Since First 100 cases', value: 2}
+        ];
+    }
+
+    shareIcon = ()=>{
+        let baseIcon = (
+            <Menu.Item onClick={this.share} fitted>
+                {this.state.sharing ? <Loader active inline size="small"/> : <Icon name="share alternate"/>}
+            </Menu.Item>
+        );
+        if(window.navigator.share){
+            return baseIcon;
+        } else if(window.navigator.clipboard){
+            return <Popup content='Link has been copied!' basic  on="click" trigger={baseIcon}/>
+        } else{
+            return null;
         }
     }
 
@@ -44,54 +65,77 @@ export default class Graph extends Component {
     }
 
     updateYAxis(){
-        let yAxisType = this.logCheckbox.checked ? 'logarithmic' : 'linear';
-        let newYaxisSettings = this.helper.getBasicAxis();
-        newYaxisSettings.type = yAxisType;
-        this.chart.chart.yAxis[0].update(newYaxisSettings);
+        let type = this.logCheckbox.checked ? 'logarithmic' : 'linear';
+        this.chart.chart.yAxis[0].update({type});
     }
 
     componentDidMount(){
         this.runFromQuery();
     }
 
-    onSubmit(){
+    inputToGraph(seriesInput){
         try {
-            let countriesSkipped = [];
-            this.state.countries.forEach((country)=>{
-                this.state.dataTypes.forEach((dataType)=>{
-                    let seriesInput = {
-                        country,
-                        xAxis: this.state.xAxis,
-                        dataType,
-                    }
-                    let seriesConfig = this.helper.getSeriesForChart(seriesInput);
-                    if(seriesConfig.data && seriesConfig.data.length){
-                        this.chart.chart.addSeries(seriesConfig, false);
-                    } else {
-                        countriesSkipped.push(country);
-                    }
-                });
-            });
-            this.chart.chart.redraw();
-            this.clearForm();
-            if(countriesSkipped.length){
-                alert(`${countriesSkipped.join(', ')} ${countriesSkipped.length === 1 ? 'does' : 'do'} not have enough data for given settings.`)
+            let seriesConfig = this.helper.getSeriesForChart(seriesInput);
+            if(seriesConfig.data && seriesConfig.data.length){
+                this.chart.chart.addSeries(seriesConfig, false);
+                return true;
             }
-        } catch (error) {
+        } catch(error){
             console.error(error);
-            alert('Oops! something went wrong.');
+        }
+    }
+
+    validate(){
+        if(this.state.countries.length === 0){
+            alert('Choose at least one country.');
+            return;
+        }
+        if(this.state.countries.length === 0){
+            alert('Choose at least one data type.');
+            return;
+        }
+        if(!this.state.xAxis && this.state.xAxis !== 0){
+            alert('Choose a xAxis from dropdown.');
+            return;
+        }
+        return true;
+    }
+
+    onSubmit(){
+        if(!this.validate()){
+            return;
+        }
+        this.plotted.push([this.state.countries, this.state.dataTypes, this.state.xAxis, this.state.movingAverage ? 1 : 0])
+        let countriesSkipped = [];
+        this.state.countries.forEach((country)=>{
+            this.state.dataTypes.forEach((dataType)=>{
+                let seriesInput = {
+                    country,
+                    xAxis: this.state.xAxis,
+                    dataType,
+                    movingAverage: this.state.movingAverage
+                }
+                if(!this.inputToGraph(seriesInput)){
+                    countriesSkipped.push(country);
+                }
+            });
+        });
+        this.chart.chart.redraw();
+        this.clearForm();
+        if(countriesSkipped.length){
+            alert(`${countriesSkipped.join(', ')} ${countriesSkipped.length === 1 ? 'does' : 'do'} not have enough data for given settings.`)
         }
     }
 
     clearForm(){
-        this.setState({countries: [], xAxis: undefined, dataTypes: []});
+        this.setState({countries: [], dataTypes: []});
         this.countriesDropdown.clearValue();
         this.dataTypeDropdown.clearValue();
-        this.xAxisDropdown.clearValue();
     }
 
     onClear(){
         this.setState({i: this.state.i + 1});
+        this.plotted = [];
         this.clearForm();
     }
 
@@ -109,41 +153,52 @@ export default class Graph extends Component {
         });
     }
 
+    share = ()=>{
+        let params = encodeURI(JSON.stringify(this.plotted));
+        let url = window.location.host + '?q=' + params + '&l=' + (this.state.log ? 1 : 0);
+        if(window.navigator.share){
+            this.setState({sharing: true}, ()=>{
+                window.navigator.share({
+                    url,
+                    text: 'See, compare and analyze Covid - 19 statistics including total case, active cases, deaths, recoveries, etc. Various options like plotting on log scale, smothening using moving average, plotting against total cases are also available.\n',
+                    title: 'Covid - 19 Data Tracker'
+                }).finally(()=>{
+                    this.setState({sharing: false});
+                });
+            });
+        } else if(window.navigator.clipboard){
+            window.navigator.clipboard.writeText(url);
+        }
+    }
+
     runFromQuery(){
         if(window.location.search){
-            let query = new URLSearchParams(window.location.search);
-            query.forEach((query, key)=>{
-                query = query.split('_');
-                try{
-                    if(key === 'title'){
-                        let title = query.join(' ');
-                        this.chart.chart.title.update({text: title})
-                        return;
-                    }
-                    if(query[0] && Object.keys(window.data).includes(query[0])){
-                        let defaultConfig = {
-                            country: query[0],
-                            xAxis: 0,
-                            dataType: 'Total Cases'
-                        }
-                        query.forEach((value, i)=>{
-                            query[i] = value.split('-').join(' ');
+            try {
+                let query = new URLSearchParams(window.location.search);
+                let inputs = query.get('q');
+                inputs = JSON.parse(inputs);
+                inputs.forEach((input)=>{
+                    if(input.length === 4){
+                        input[0].forEach((country)=>{
+                            input[1].forEach((dataType)=>{
+                                let seriesInput = {
+                                    country,
+                                    xAxis: input[2],
+                                    dataType,
+                                    movingAverage: input[3] ? true : false
+                                }
+                                this.inputToGraph(seriesInput)
+                            });
                         });
-                        if(query[1] && Object.keys(this.helper.dataTypesDict).includes(query)){
-                            defaultConfig.dataType = query[1];
-                        }
-                        if(query[2] === 'Since First 100 Cases'){
-                            defaultConfig.xAxis = 1;
-                        }
-                        let seriesConfig = this.helper.getSeriesForChart(defaultConfig);
-                        if(seriesConfig.data && seriesConfig.data.length){
-                            this.chart.chart.addSeries(seriesConfig);
-                        }
+                        this.chart.chart.redraw();
                     }
-                } catch(error) {
-                    console.error(error);
-                }
-            });
+                });
+                let log = parseInt(query.get('l')) ? true : false;
+                this.yAxisUpdate(log);
+                this.plotted = inputs;
+            } catch (error) {
+                console.error(error);
+            }
         }
     }
 
@@ -167,12 +222,19 @@ export default class Graph extends Component {
                                             options={this.dataTypeEntries()} multiple search
                                             selection closeOnChange clearable fluid placeholder="Data Types"/>
                             </Grid.Column>
-                            <Grid.Column>
+                            <Grid.Column width={4}>
                                 <Dropdown onChange={(_e, {value})=>{this.setState({xAxis: value})}}
                                             ref={(a)=>{this.xAxisDropdown = a}}
-                                            options={[{text: 'Days Since First 100 Cases', value: 1},
-                                                    {text: 'Date', value: 0}]} selection fluid
+                                            options={this.xAxisDropdownList} selection fluid
                                                     placeholder="X-Axis"/>
+                            </Grid.Column>
+                        </Grid.Row>
+                        <Grid.Row>
+                            <Grid.Column>
+                                <Checkbox slider label='Smoothen' onChange={()=>{
+                                    this.setState({movingAverage: !this.state.movingAverage});}}/>
+                                {/* <Popup trigger={<Icon name="help" size="small" color="grey"/>} basic
+                                        content="Takes moving average of last 7 points. First 6 points are dropped."/> */}
                             </Grid.Column>
                         </Grid.Row>
                         <Grid.Row>
@@ -196,8 +258,9 @@ export default class Graph extends Component {
                             onClick={()=>this.yAxisUpdate(true)}
                         />
                         <Menu.Menu position='right'>
-                            <Menu.Item onClick={this.onFull}>
-                                <Icon name="expand arrows alternate"></Icon>
+                            <this.shareIcon/>
+                            <Menu.Item onClick={this.onFull} fitted>
+                                <Icon name="expand arrows alternate"/>
                             </Menu.Item>
                         </Menu.Menu>
                     </Menu>
