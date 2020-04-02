@@ -233,8 +233,8 @@ export default class Graph extends Component {
                             <Grid.Column>
                                 <Checkbox slider label='Smoothen' onChange={()=>{
                                     this.setState({movingAverage: !this.state.movingAverage});}}/>
-                                <Popup trigger={<Icon name="help" size="small" color="grey"/>} basic
-                                        content="Takes moving average of 7 points. First 6 points are dropped."/>
+                                {/* <Popup trigger={<Icon name="help" size="small" color="grey"/>} basic
+                                        content="Takes moving average of last 7 points. First 6 points are dropped."/> */}
                             </Grid.Column>
                         </Grid.Row>
                         <Grid.Row>
