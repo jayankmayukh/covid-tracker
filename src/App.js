@@ -1,6 +1,6 @@
 import React, { Component, Fragment } from 'react';
 import './App.scss';
-import { Header, Icon, Tab, Container, Segment, Menu, MenuItem, MenuMenu, Loader, Dimmer } from 'semantic-ui-react';
+import { Header, Icon, Tab, Container, MenuItem, MenuMenu, Loader, Dimmer } from 'semantic-ui-react';
 import Graph from './components/Graph';
 import DataTable from './components/DataTable';
 
@@ -86,7 +86,7 @@ class App extends Component{
                         <Fragment>
                             <Header as="h1" color="grey">
                                 <Header.Content>
-                                    <Icon name="chart bar outline"/>
+                                    <Icon name="dashboard"/>
                                     Covid-19 Tracker
                                 </Header.Content>
                             </Header>

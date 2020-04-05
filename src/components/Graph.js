@@ -4,7 +4,7 @@ import HighchartsReact from 'highcharts-react-official';
 import Helpers from '../Helpers';
 import '../styles/Graph.scss';
 import Fullscreen from "react-full-screen";
-import { Dropdown, Grid, Button, Container, Menu, Icon, Checkbox, Popup, Loader, Accordion, AccordionTitle, AccordionContent, Transition, Divider} from 'semantic-ui-react';
+import { Dropdown, Grid, Button, Menu, Icon, Checkbox, Popup, Loader, Transition} from 'semantic-ui-react';
 
 export default class Graph extends Component {
     constructor(props){
