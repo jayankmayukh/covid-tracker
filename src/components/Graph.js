@@ -168,7 +168,7 @@ export default class Graph extends Component {
             this.setState({sharing: true}, ()=>{
                 window.navigator.share({
                     url: query,
-                    text: 'See, compare and analyze Covid - 19 statistics including total case, active cases, deaths, recoveries, etc. Various options like plotting on log scale, smothening using moving average, plotting against total cases are also available.\n',
+                    text: 'See, compare and analyze Covid - 19 statistics.\n',
                     title: 'Covid - 19 Data Tracker'
                 }).finally(()=>{
                     this.setState({sharing: false});

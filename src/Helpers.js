@@ -120,9 +120,8 @@ export default class Helpers {
         if(inp.movingAverage){
             series = this.movingAverage(series);
         }
-        let xAxisNames = ['Date Wise', 'Since First 100 Cases', 'Total Cases (logarithmic scale)'];
         return {
-            name: `${inp.country} - ${inp.dataType} - ${xAxisNames[inp.xAxis]}`,
+            name: `${inp.country} - ${inp.dataType}${inp.movingAverage ? ' - One Week Moving Average' : ''}`,
             data: series,
             xAxis: inp.xAxis
         }
