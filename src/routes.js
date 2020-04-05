@@ -1,17 +1,15 @@
 import React from 'react';
 import {BrowserRouter as Router, Switch, Route} from "react-router-dom";
-import Graph from './components/Graph';
-import Summary from './components/Summary';
+import App from './App';
 
-export default (
+const routes = (
   <Router>
         <Switch>
-            <Route path="/">
-                <Graph/>
-            </Route>
-            <Route path="/covid-19_summary">
-                <Summary/>
+            <Route path="/*">
+                <App/>
             </Route>
         </Switch>
   </Router>
 );
+
+export default routes;

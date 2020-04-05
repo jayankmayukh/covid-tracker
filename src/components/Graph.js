@@ -1,10 +1,10 @@
 import React, {Component, Fragment} from 'react';
-import Highcharts, { grep } from 'highcharts';
+import Highcharts from 'highcharts';
 import HighchartsReact from 'highcharts-react-official';
 import Helpers from '../Helpers';
 import '../styles/Graph.scss';
 import Fullscreen from "react-full-screen";
-import { Dropdown, Grid, Button, Container, Menu, Icon, Checkbox, Segment, Popup, Loader} from 'semantic-ui-react';
+import { Dropdown, Grid, Button, Container, Menu, Icon, Checkbox, Popup, Loader, Accordion, AccordionTitle, AccordionContent, Transition, Divider} from 'semantic-ui-react';
 
 export default class Graph extends Component {
     constructor(props){
@@ -17,7 +17,10 @@ export default class Graph extends Component {
             log: false,
             i: 0,
             isFull: false,
-            sharing: false
+            sharing: false,
+            countryEntries: [],
+            dataTypeEntries: [],
+            formOpen: true
         };
         this.plotted = [];
         this.xAxisDropdownList = [
@@ -44,14 +47,16 @@ export default class Graph extends Component {
 
     countryEntries(){
         let elemList = [];
-        Object.keys(window.data).sort((a,b)=>{
-            let countA = window.data[a][window.data[a].length - 1].confirmed;
-            let countB = window.data[b][window.data[b].length - 1].confirmed;
+        window.countryData.filter((itrData)=>{
+            return itrData.timeline && itrData.timeline.length > 1;
+        }).sort((a,b)=>{
+            let countA = a.timeline[0].confirmed;
+            let countB = b.timeline[0].confirmed;
             return countB - countA;
-        }).forEach((name)=>{
-            elemList.push({text: name, value: name});
+        }).forEach((itrData)=>{
+            elemList.push({text: itrData.name, value: itrData.code});
         });
-        return elemList;
+        this.setState({countryEntries: elemList});
     }
 
     dataTypeEntries(){
@@ -61,7 +66,7 @@ export default class Graph extends Component {
                 {text: name, value: name}
             ); 
         });
-        return elemList;
+        this.setState({dataTypeEntries: elemList});
     }
 
     updateYAxis(){
@@ -71,6 +76,8 @@ export default class Graph extends Component {
 
     componentDidMount(){
         this.runFromQuery();
+        this.countryEntries();
+        this.dataTypeEntries();
     }
 
     inputToGraph(seriesInput){
@@ -155,8 +162,8 @@ export default class Graph extends Component {
 
     share = ()=>{
         let params = encodeURI(JSON.stringify(this.plotted));
-        let query = '?q=' + params + '&l=' + (this.state.log ? 1 : 0);
-        let url = window.location.host;
+        let query = '/graph?q=' + params + '&l=' + (this.state.log ? 1 : 0);
+        let url = window.location.host + query;
         if(window.navigator.share){
             this.setState({sharing: true}, ()=>{
                 window.navigator.share({
@@ -172,12 +179,15 @@ export default class Graph extends Component {
         }
     }
 
-    runFromQuery(){
-        if(window.location.search){
-            try {
-                let query = new URLSearchParams(window.location.search);
-                let inputs = query.get('q');
-                inputs = JSON.parse(inputs);
+    runFromQuery(inputs, log=false){
+        if(!inputs && window.location.search){
+            let query = new URLSearchParams(window.location.search);
+            inputs = query.get('q');
+            inputs = JSON.parse(inputs);
+            log = parseInt(query.get('l')) ? true : false;
+        }
+        if(inputs){
+            try {  
                 inputs.forEach((input)=>{
                     if(input.length === 4){
                         input[0].forEach((country)=>{
@@ -193,10 +203,10 @@ export default class Graph extends Component {
                         });
                         this.chart.chart.redraw();
                     }
-                });
-                let log = parseInt(query.get('l')) ? true : false;
+                }); 
                 this.yAxisUpdate(log);
-                this.plotted = inputs;
+                this.plotted = [...this.plotted, ...inputs];
+                this.setState({formOpen: false});
             } catch (error) {
                 console.error(error);
             }
@@ -206,13 +216,13 @@ export default class Graph extends Component {
     render(){
         return (
             <Fragment>
-                <Container>
+                <Transition duration={0} visible={this.state.formOpen}>
                     <Grid stackable columns='equal'>
                         <Grid.Row>
                             <Grid.Column>
                                 <Dropdown ref={(a)=>{this.countriesDropdown = a}} 
                                             onChange={(_e, {value})=>{this.setState({countries: value})}}
-                                            options={this.countryEntries()} multiple search
+                                            options={this.state.countryEntries} multiple search
                                             selection closeOnChange clearable fluid placeholder="Countries"/>
                             </Grid.Column>
                         </Grid.Row>
@@ -220,7 +230,7 @@ export default class Graph extends Component {
                             <Grid.Column width={12}>
                                 <Dropdown onChange={(_e, {value})=>{this.setState({dataTypes: value});}}
                                             ref={(a)=>{this.dataTypeDropdown = a}}
-                                            options={this.dataTypeEntries()} multiple search
+                                            options={this.state.dataTypeEntries} multiple search
                                             selection closeOnChange clearable fluid placeholder="Data Types"/>
                             </Grid.Column>
                             <Grid.Column width={4}>
@@ -234,8 +244,6 @@ export default class Graph extends Component {
                             <Grid.Column>
                                 <Checkbox slider label='Smoothen' onChange={()=>{
                                     this.setState({movingAverage: !this.state.movingAverage});}}/>
-                                {/* <Popup trigger={<Icon name="help" size="small" color="grey"/>} basic
-                                        content="Takes moving average of last 7 points. First 6 points are dropped."/> */}
                             </Grid.Column>
                         </Grid.Row>
                         <Grid.Row>
@@ -246,7 +254,8 @@ export default class Graph extends Component {
                                 <Button basic color='red' fluid onClick={()=>this.onClear()}>Clear Graph</Button>
                             </Grid.Column>
                         </Grid.Row>
-                    </Grid>
+                    </Grid>  
+                </Transition>
                     <Menu tabular attached="top">
                         <Menu.Item
                             name='Linear Scale'
@@ -259,6 +268,9 @@ export default class Graph extends Component {
                             onClick={()=>this.yAxisUpdate(true)}
                         />
                         <Menu.Menu position='right'>
+                            <Menu.Item onClick={()=>this.setState({formOpen: !this.state.formOpen})} fitted>
+                                <Icon  name={this.state.formOpen ? 'chevron up' : 'sliders horizontal'}/>
+                            </Menu.Item>
                             <this.shareIcon/>
                             <Menu.Item onClick={this.onFull} fitted>
                                 <Icon name="expand arrows alternate"/>
@@ -273,7 +285,7 @@ export default class Graph extends Component {
                                         containerProps={{className: 'main-chart-container'}}
                         />
                     </Fullscreen>
-                </Container>
+
            </Fragment>
         );
     }

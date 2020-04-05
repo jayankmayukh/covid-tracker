@@ -6,10 +6,10 @@ export default class Helpers {
             'Total Cases': 'confirmed',
             'Deaths': 'deaths',
             'Recovered': 'recovered',
-            'Daily Cases': 'confirmed:diff:nonNegative',
+            'Daily Cases': 'new_confirmed',
             'Active Cases': 'active',
-            'Daily Recoveries': 'recovered:diff:nonNegative',
-            'Daily Deaths': 'deaths:diff:nonNegative'
+            'Daily Recoveries': 'new_recovered',
+            'Daily Deaths': 'new_deaths'
         }
     }
 
@@ -18,28 +18,32 @@ export default class Helpers {
     }
 
     getSeries(country, key, xAxis){
+        let data = [];
         let series = [];
-        let operations;
-        [key, operations] = [key.split(':')[0], key.split(':').slice(1)];
-        for(let value of window.data[country]){
+        window.countryData.some((itrData)=>{
+            if(itrData.code === country){
+                data = itrData.timeline.filter(value=>!value.is_in_progress).reverse();
+                return true
+            }
+        });
+        if([1,2].includes(xAxis)){
+            data = data.filter((value)=>{
+                return value.confirmed >= 100;
+            });
+        }
+        for(let i=0; i < data.length; i++){
+            let value = data[i];
             let xVal;
             if(xAxis === 2){
                 xVal = value.confirmed;
-                if (xVal < 100) continue;
+            } else if(xAxis === 1){
+                xVal = i;
             } else{
                 xVal = Date.parse(value.date) - this.tzOffset;
             }
             if(value[key]){
                 series.push([xVal, value[key]]);
-            } else if(key === 'active'){
-                let total = value.confirmed;
-                let closed = value.recovered + value.deaths;
-                let active = total - closed;
-                series.push([xVal, active]);
             }
-        }
-        for(let operation of operations){
-            series = this.applySeriesOp(series, operation);
         }
         return series;
     }
@@ -83,7 +87,7 @@ export default class Helpers {
             plotOptions:{
                 series: {
                     marker: {
-                        // symbol: 'circle'
+                        symbol: 'circle',
                         enabled: false
                     }
                 }
@@ -94,82 +98,18 @@ export default class Helpers {
         }
     }
 
-    applySeriesOp(series, operation){
-        let newSeries = []
-        if(series.length){
-            switch (operation){
-                default:
-                    newSeries = series;
-                    break;
-
-                case 'diff':
-                    for(let i=0; i < series.length; i++){
-                        let diff = i===0 ? series[i][1] : series[i][1] - series[i - 1][1]; // i = 0 is first case
-                        let timestamp = series[i][0]
-                        newSeries.push([timestamp, diff]);
-                    }
-                    break;
-
-                case 'ratio':
-                    for(let i=1; i < series.length; i++){
-                        let ratio = series[i][1]/series[i-1][1]; // i = 0 is first case
-                        let timestamp = series[i][0]
-                        newSeries.push([timestamp, ratio]);
-                    }
-                    break;
-                case 'xToDayCount':
-                    for(let i=0; i < series.length; i++){
-                        newSeries.push([i,series[i][1]]);
-                    }
-                    break;
-                case 'nonNegative':
-                    for(let i=0; i < series.length; i++){
-                        if(series[i][1] >= 0){
-                            newSeries.push(series[i]);
-                        }
-                    }
-                    break;
-                case 'movingAverage':
-                    let sum = 0;
-                    let N = 7; 
-                    for(let i=0; i < series.length; i++){
-                        sum += series[i][1];
-                        if(series[i-N]){
-                            sum -= series[i-N][1];
-                        }
-                        if(i >= N - 1){
-                            let avg = Math.round(sum/N);
-                            newSeries.push([series[i][0], avg]);
-                        }
-                    }
-                    break;
-            }
-        }
-        return newSeries;
-    }
-
-    dataSinceNCases(series, country, n=100){
-        let cases = this.getSeries(country, 'confirmed');
-        let start = -1;
-        for(let i=0; i < cases.length; i++){
-            if(cases[i][1] >= n){
-                start = i;
-                break;
-            }
-        }
-        if(start === -1){
-            return []
-        }
+    movingAverage(series){
         let newSeries = [];
-        let refCases = cases.slice(start);
-        if(refCases.length && refCases[0][0] < series[0][0]){
-            for(let i=0; refCases[i][0] >= series[0][0]; i++){
-                newSeries.push([refCases[i][0], 0])
-            }
-        }
+        let sum = 0;
+        let N = 7; 
         for(let i=0; i < series.length; i++){
-            if(series[i][0] >= refCases[0][0]){
-                newSeries.push(series[i]);
+            sum += series[i][1];
+            if(series[i-N]){
+                sum -= series[i-N][1];
+            }
+            if(i >= N - 1){
+                let avg = Math.round(sum/N);
+                newSeries.push([series[i][0], avg]);
             }
         }
         return newSeries;
@@ -177,12 +117,8 @@ export default class Helpers {
 
     getSeriesForChart(inp){
         let series = this.getSeries(inp.country, this.dataTypesDict[inp.dataType], inp.xAxis);
-        if(inp.xAxis === 1){
-            series = this.dataSinceNCases(series, inp.country);
-            series = this.applySeriesOp(series, 'xToDayCount')
-        }
         if(inp.movingAverage){
-            series = this.applySeriesOp(series, 'movingAverage');
+            series = this.movingAverage(series);
         }
         let xAxisNames = ['Date Wise', 'Since First 100 Cases', 'Total Cases (logarithmic scale)'];
         return {
@@ -191,5 +127,4 @@ export default class Helpers {
             xAxis: inp.xAxis
         }
     }
-
 }
