@@ -48,13 +48,18 @@ class App extends Component {
                     <Fragment key={2}>
                         <MenuMenu position='right'>
                             <MenuItem fitted>
-                                <a target='_blank' href='https://www.linkedin.com/in/jayank-mayukh'>
+                                <a
+                                    target='_blank'
+                                    rel='noopener noreferrer'
+                                    href='https://www.linkedin.com/in/jayank-mayukh'
+                                >
                                     <Icon fitted color='blue' size='large' name='linkedin' />
                                 </a>
                             </MenuItem>
                             <MenuItem fitted>
                                 <a
                                     target='_blank'
+                                    rel='noopener noreferrer'
                                     href='https://github.com/jayankmayukh/covid-tracker'
                                 >
                                     <Icon fitted color='black' size='large' name='github' />
@@ -84,7 +89,7 @@ class App extends Component {
                 0
             ]
         ]
-        this.setState({ activeIndex: 1 }, () => {
+        this.setState({ activeIndex: 2 }, () => {
             this.Graph.runFromQuery(inp)
         })
     }
