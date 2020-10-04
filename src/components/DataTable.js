@@ -237,7 +237,7 @@ export default class DataTable extends Component {
         return (
             <Fragment>
                 <Container text>
-                    {isMobile() ? (
+                    {!isMobile() ? (
                         <Statistic.Group widths={1}>
                             <Statistic>
                                 <Statistic.Value>
