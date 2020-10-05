@@ -113,7 +113,7 @@ class App extends Component {
             this.setState({ dataLoaded: true })
         })
         if (/^\/graph/i.test(window.location.pathname)) {
-            this.setState({ activeIndex: 1 })
+            this.setState({ activeIndex: 2 })
         }
     }
 
