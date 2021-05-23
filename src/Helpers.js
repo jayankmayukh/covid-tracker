@@ -1,35 +1,47 @@
 export default class Helpers {
     constructor() {
         this.tzOffset = new Date().getTimezoneOffset() * 60 * 1000
-        this.dataTypesDict = {
-            'Total Cases': 'confirmed',
-            Deaths: 'deaths',
-            Recovered: 'recovered',
-            'Daily Cases': 'new_confirmed',
-            'Active Cases': 'active',
-            'Daily Recoveries': 'new_recovered',
-            'Daily Deaths': 'new_deaths'
-        }
         this.cache = {}
+        this.getDataTypesDict([])
+    }
+
+    getReadableName(name) {
+        return name.split('_').map(part => {
+            let _part = part[0].toUpperCase() + part.slice(1)
+            return _part
+        }).join(' ')
+    }
+
+    getDataTypesDict(countries) {
+        const types = {}
+        if (!countries.length) {
+            Object.keys(window.meta.timeseries).forEach((k) => (types[k] = this.getReadableName(k)))
+        }
+        countries.forEach((country, i) => {
+            if (i === 0) {
+                window.meta.countries[country].timeseries.forEach((ts) => {
+                    types[ts] = this.getReadableName(ts)
+                })
+            } else {
+                Object.keys(types).forEach((type) => {
+                    if (!window.meta.countries[country].timeseries.includes(type)) {
+                        delete types[type]
+                    }
+                })
+            }
+        })
+        this.dataTypesDict = types
+        return types
     }
 
     async fetchData(country) {
-        if (country === 'World')
-            return {
-                code: 'World',
-                name: 'World',
-                latest_data: window.worldData[0],
-                timeline: window.worldData
-            }
-        else {
-            if (!this.cache[country] || this.cache[country].failed) {
-                this.cache[country] = fetch('https://corona-api.com/countries/' + country)
-                    .then(data => data.json())
-                    .then(data => data.data)
-                    .catch(() => this.cache[country].failed = true)
-            }
-            return this.cache[country]
+        const cacheKey = country
+        if (!this.cache[cacheKey] || this.cache[cacheKey].failed) {
+            this.cache[cacheKey] = fetch(`.netlify/functions/timeseries?country=${country}`)
+                .then((data) => data.json())
+                .catch(() => (this.cache[cacheKey].failed = true))
         }
+        return this.cache[cacheKey]
     }
 
     isMobile() {
@@ -39,20 +51,27 @@ export default class Helpers {
     async getSeries(country, key, xAxis) {
         let apiData = await this.fetchData(country)
         let series = []
-        let data = apiData.timeline.filter((value) => !value.is_in_progress).reverse()
+        let data = apiData
         if ([1, 2].includes(xAxis)) {
             data = data.filter((value) => {
-                return value.confirmed >= 100
+                return value.total_cases >= 100
+            })
+        }
+        if ([3].includes(xAxis)) {
+            data = data.filter((value) => {
+                return value.total_vaccinations >= 1
             })
         }
         for (let i = 0; i < data.length; i++) {
             let value = data[i]
             let xVal
             if (xAxis === 2) {
-                xVal = value.confirmed
+                xVal = value.total_cases
             } else if (xAxis === 1) {
                 xVal = i
-            } else {
+            } else if (xAxis) {
+                xVal = i
+            }else {
                 xVal = Date.parse(value.date) - this.tzOffset
             }
             if (value[key]) {
@@ -65,11 +84,11 @@ export default class Helpers {
     getBasicAxis(title) {
         return {
             title: {
-                text: title
+                text: title,
             },
             lineWidth: 1,
             showEmpty: false,
-            allowDecimals: false
+            allowDecimals: false,
         }
     }
 
@@ -78,35 +97,37 @@ export default class Helpers {
             xAxis: [
                 {
                     type: 'datetime',
-                    ...this.getBasicAxis('Date')
+                    ...this.getBasicAxis('Date'),
                 },
                 this.getBasicAxis('Days Since First 100 cases'),
                 {
                     type: 'logarithmic',
-                    ...this.getBasicAxis('Total Cases Since First 100 Cases (Log Scale)')
-                }
+                    ...this.getBasicAxis('Total Cases Since First 100 Cases (Log Scale)'),
+                },
+                this.getBasicAxis('Days Since Vaccination Started')
             ],
             credits: {
-                enabled: false
+                text: 'Source: Our World In Data',
+                href: 'https://github.com/owid/covid-19-data/tree/master/public/data#license',
             },
             chart: {
-                animation: false
+                animation: false,
             },
             yAxis: [this.getBasicAxis()],
             title: {
-                text: title
+                text: title,
             },
             plotOptions: {
                 series: {
                     marker: {
                         symbol: 'circle',
-                        enabled: false
-                    }
-                }
+                        enabled: false,
+                    },
+                },
             },
             tooltip: {
-                shared: true
-            }
+                shared: true,
+            },
         }
     }
 
@@ -128,16 +149,16 @@ export default class Helpers {
     }
 
     async getSeriesForChart(inp) {
-        let series = await this.getSeries(inp.country, this.dataTypesDict[inp.dataType], inp.xAxis)
+        let series = await this.getSeries(inp.country, inp.dataType, inp.xAxis)
         if (inp.movingAverage) {
             series = this.movingAverage(series)
         }
         return {
-            name: `${inp.country} - ${inp.dataType}${
-                inp.movingAverage ? ' - One Week Moving Average' : ''
+            name: `${inp.country} - ${this.dataTypesDict[inp.dataType]}${
+                inp.movingAverage ? ' - 7DMA' : ''
             }`,
             data: series,
-            xAxis: inp.xAxis
+            xAxis: inp.xAxis,
         }
     }
 }

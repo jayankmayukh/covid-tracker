@@ -1,8 +1,0 @@
-{
-    "compilerOptions": {
-        "esModuleInterop": true,
-        "isolatedModules": true,
-        "resolveJsonModule": true,
-    },
-    "include": ["netlify/functions/**/*"]
-}

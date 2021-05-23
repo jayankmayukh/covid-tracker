@@ -2,6 +2,8 @@ import React, { Component, Fragment } from 'react'
 import Highcharts from 'highcharts'
 import HighchartsReact from 'highcharts-react-official'
 import Helpers, { isMobile } from '../Helpers'
+import iso from 'i18n-iso-countries'
+import enLocale from 'i18n-iso-countries/langs/en.json'
 import '../styles/Graph.scss'
 import Fullscreen from 'react-full-screen'
 import {
@@ -14,8 +16,10 @@ import {
     Popup,
     Loader,
     Transition,
-    Dimmer
+    Dimmer,
 } from 'semantic-ui-react'
+
+iso.registerLocale(enLocale);
 
 export default class Graph extends Component {
     constructor(props) {
@@ -32,13 +36,14 @@ export default class Graph extends Component {
             countryEntries: [],
             dataTypeEntries: [],
             formOpen: true,
-            loading: false
+            loading: false,
         }
         this.plotted = []
         this.xAxisDropdownList = [
             { text: 'Days Since First 100 Cases', value: 1 },
             { text: 'Date', value: 0 },
-            { text: 'Total Cases (Log Scale) Since First 100 cases', value: 2 }
+            { text: 'Total Cases (Log Scale) Since First 100 cases', value: 2 },
+            { text: 'Days Since Vaccination Started', value: 3 }
         ]
     }
 
@@ -46,42 +51,33 @@ export default class Graph extends Component {
         let baseIcon = (
             <Menu.Item onClick={this.share} fitted>
                 {this.state.sharing ? (
-                    <Loader active inline size='small' />
+                    <Loader active inline size="small" />
                 ) : (
-                    <Icon name='share alternate' />
+                    <Icon name="share alternate" />
                 )}
             </Menu.Item>
         )
         if (window.navigator.share) {
             return baseIcon
         } else if (window.navigator.clipboard) {
-            return <Popup content='Link has been copied!' basic on='click' trigger={baseIcon} />
+            return <Popup content="Link has been copied!" basic on="click" trigger={baseIcon} />
         } else {
             return null
         }
     }
 
     countryEntries() {
-        let elemList = []
-        window.countryData
-            .filter((itrData) => {
-                return itrData.latest_data
-            })
-            .sort((a, b) => {
-                let countA = a.latest_data.confirmed
-                let countB = b.latest_data.confirmed
-                return countB - countA
-            })
-            .forEach((itrData) => {
-                elemList.push({ text: itrData.name, value: itrData.code })
-            })
+        let elemList = window.countries.map((code) => ({
+            text: iso.getName(code, 'en'),
+            value: code,
+        }))
         this.setState({ countryEntries: elemList })
     }
 
     dataTypeEntries() {
         let elemList = []
-        Object.keys(this.helper.dataTypesDict).forEach((name) => {
-            elemList.push({ text: name, value: name })
+        Object.entries(this.helper.getDataTypesDict(this.state.countries)).forEach(([key, name]) => {
+            elemList.push({ text: name, value: key })
         })
         this.setState({ dataTypeEntries: elemList })
     }
@@ -133,7 +129,7 @@ export default class Graph extends Component {
             this.state.countries,
             this.state.dataTypes,
             this.state.xAxis,
-            this.state.movingAverage ? 1 : 0
+            this.state.movingAverage ? 1 : 0,
         ])
         let promises = []
         this.state.countries.forEach((country) => {
@@ -142,7 +138,7 @@ export default class Graph extends Component {
                     country,
                     xAxis: this.state.xAxis,
                     dataType,
-                    movingAverage: this.state.movingAverage
+                    movingAverage: this.state.movingAverage,
                 }
                 promises.push(this.inputToGraph(seriesInput))
             })
@@ -152,11 +148,13 @@ export default class Graph extends Component {
         await Promise.all(promises)
         this.chart.chart.redraw()
         this.setState({ loading: false })
-        // this.clearForm()
+        this.clearForm()
     }
 
     clearForm() {
-        this.setState({ countries: [], dataTypes: [] })
+        this.setState({ countries: [], dataTypes: [] }, () => {
+            this.dataTypeEntries()
+        })
         this.countriesDropdown.clearValue()
         this.dataTypeDropdown.clearValue()
     }
@@ -190,7 +188,7 @@ export default class Graph extends Component {
                     .share({
                         url: query,
                         text: 'See, compare and analyze Covid - 19 statistics.\n',
-                        title: 'Covid - 19 Data Tracker'
+                        title: 'Covid - 19 Data Tracker',
                     })
                     .finally(() => {
                         this.setState({ sharing: false })
@@ -219,7 +217,7 @@ export default class Graph extends Component {
                                     country,
                                     xAxis: input[2],
                                     dataType,
-                                    movingAverage: input[3] ? true : false
+                                    movingAverage: input[3] ? true : false,
                                 }
                                 promises.push(this.inputToGraph(seriesInput))
                             })
@@ -244,7 +242,7 @@ export default class Graph extends Component {
         return (
             <Fragment>
                 <Transition duration={0} visible={this.state.formOpen}>
-                    <Grid stackable columns='equal'>
+                    <Grid stackable columns="equal">
                         <Grid.Row>
                             <Grid.Column>
                                 <Dropdown
@@ -252,7 +250,9 @@ export default class Graph extends Component {
                                         this.countriesDropdown = a
                                     }}
                                     onChange={(_e, { value }) => {
-                                        this.setState({ countries: value })
+                                        this.setState({ countries: value }, () => {
+                                            this.dataTypeEntries()
+                                        })
                                     }}
                                     options={this.state.countryEntries}
                                     multiple
@@ -261,7 +261,7 @@ export default class Graph extends Component {
                                     closeOnChange
                                     clearable
                                     fluid
-                                    placeholder='Countries'
+                                    placeholder="Countries"
                                 />
                             </Grid.Column>
                         </Grid.Row>
@@ -281,7 +281,7 @@ export default class Graph extends Component {
                                     closeOnChange
                                     clearable
                                     fluid
-                                    placeholder='Data Types'
+                                    placeholder="Data Types"
                                 />
                             </Grid.Column>
                             <Grid.Column width={4}>
@@ -295,7 +295,7 @@ export default class Graph extends Component {
                                     options={this.xAxisDropdownList}
                                     selection
                                     fluid
-                                    placeholder='X-Axis'
+                                    placeholder="X-Axis"
                                 />
                             </Grid.Column>
                         </Grid.Row>
@@ -303,7 +303,7 @@ export default class Graph extends Component {
                             <Grid.Column>
                                 <Checkbox
                                     slider
-                                    label='Smoothen'
+                                    label="Smoothen"
                                     onChange={() => {
                                         this.setState({ movingAverage: !this.state.movingAverage })
                                     }}
@@ -317,25 +317,25 @@ export default class Graph extends Component {
                                 </Button>
                             </Grid.Column>
                             <Grid.Column>
-                                <Button basic color='red' fluid onClick={() => this.onClear()}>
+                                <Button basic color="red" fluid onClick={() => this.onClear()}>
                                     Clear Graph
                                 </Button>
                             </Grid.Column>
                         </Grid.Row>
                     </Grid>
                 </Transition>
-                <Menu tabular attached='top'>
+                <Menu tabular attached="top">
                     <Menu.Item
-                        name='Linear Scale'
+                        name="Linear Scale"
                         active={!this.state.log}
                         onClick={() => this.yAxisUpdate(false)}
                     />
                     <Menu.Item
-                        name='Log Scale'
+                        name="Log Scale"
                         active={this.state.log}
                         onClick={() => this.yAxisUpdate(true)}
                     />
-                    <Menu.Menu position='right'>
+                    <Menu.Menu position="right">
                         <Menu.Item
                             onClick={() => this.setState({ formOpen: !this.state.formOpen })}
                             fitted
@@ -346,7 +346,7 @@ export default class Graph extends Component {
                         </Menu.Item>
                         <this.shareIcon />
                         <Menu.Item onClick={this.onFull} fitted>
-                            <Icon name='expand arrows alternate' />
+                            <Icon name="expand arrows alternate" />
                         </Menu.Item>
                     </Menu.Menu>
                 </Menu>
@@ -367,7 +367,7 @@ export default class Graph extends Component {
                             containerProps={{ className: 'main-chart-container' }}
                         />
                         <Dimmer active={this.state.loading} inverted>
-                            <Loader content='Fetching data...'/>
+                            <Loader content="Fetching data..." />
                         </Dimmer>
                     </Dimmer.Dimmable>
                 </Fullscreen>

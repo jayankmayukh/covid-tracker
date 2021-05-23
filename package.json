@@ -10,6 +10,7 @@
     "@testing-library/user-event": "^7.2.1",
     "highcharts": "^8.0.4",
     "highcharts-react-official": "^3.0.0",
+    "i18n-iso-countries": "^6.7.0",
     "node-fetch": "^2.6.1",
     "node-sass": "^4.13.1",
     "papaparse": "^5.3.0",
