@@ -2,8 +2,6 @@ import React, { Component, Fragment } from 'react'
 import './App.scss'
 import { Header, Icon, Tab, Container, MenuItem, MenuMenu, Loader, Dimmer } from 'semantic-ui-react'
 import Graph from './components/Graph'
-import DataTable from './components/DataTable'
-import Map from './components/Map'
 
 class App extends Component {
     constructor(props) {
@@ -13,22 +11,6 @@ class App extends Component {
             activeIndex: 0
         }
         this.tabs = [
-            {
-                menuItem: 'World Map',
-                pane: {
-                    content: <Map plotGraph={this.plotGraph.bind(this)} />,
-                    as: Container,
-                    key: 2
-                }
-            },
-            {
-                menuItem: 'Data Table',
-                pane: {
-                    content: <DataTable plotGraph={this.plotGraph.bind(this)} />,
-                    as: Container,
-                    key: 0
-                }
-            },
             {
                 menuItem: 'Create Graph',
                 pane: {
@@ -72,48 +54,20 @@ class App extends Component {
         ]
     }
 
-    plotGraph(country) {
-        let inp = [
-            [
-                [country],
-                [
-                    'Total Cases',
-                    'Deaths',
-                    'Recovered',
-                    'Daily Cases',
-                    'Active Cases',
-                    'Daily Recoveries',
-                    'Daily Deaths'
-                ],
-                1,
-                0
-            ]
-        ]
-        this.setState({ activeIndex: 2 }, () => {
-            this.Graph.runFromQuery(inp)
-        })
-    }
-
     componentDidMount() {
         let requests = [
-            fetch('https://corona-api.com/countries').then(async (data) => {
-                window.countryData = (await data.json()).data
+            fetch('.netlify/functions/meta').then(async (data) => {
+                window.meta = await data.json()
             }),
-            fetch('https://corona-api.com/timeline').then(async (data) => {
-                window.worldData = (await data.json()).data
+            fetch('.netlify/functions/countries').then(async (data) => {
+                window.countries = await data.json()
             })
         ]
         Promise.all(requests).then(() => {
-            window.countryData.push({
-                code: 'World',
-                name: 'World',
-                latest_data: window.worldData[0],
-                timeline: window.worldData
-            })
             this.setState({ dataLoaded: true })
         })
         if (/^\/graph/i.test(window.location.pathname)) {
-            this.setState({ activeIndex: 2 })
+            this.setState({ activeIndex: 0 })
         }
     }
 
