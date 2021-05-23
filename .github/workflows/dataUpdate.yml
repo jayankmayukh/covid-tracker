@@ -24,7 +24,7 @@ jobs:
       with:
         node-version: 14
     - name: Install Dependencies
-      run: npm ci
+      uses: bahmutov/npm-install@v1.6.0 
     - name: Fetch New Data
       run: npm run fetch-data
     - name: Commit Changes to production
