@@ -8,7 +8,7 @@ class App extends Component {
         super(props)
         this.state = {
             dataLoaded: false,
-            activeIndex: 0
+            activeIndex: 0,
         }
         this.tabs = [
             {
@@ -22,46 +22,47 @@ class App extends Component {
                         />
                     ),
                     as: Container,
-                    key: 1
-                }
+                    key: 1,
+                },
             },
             {
                 menuItem: (
                     <Fragment key={2}>
-                        <MenuMenu position='right'>
+                        <MenuMenu position="right">
                             <MenuItem fitted>
                                 <a
-                                    target='_blank'
-                                    rel='noopener noreferrer'
-                                    href='https://www.linkedin.com/in/jayank-mayukh'
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    href="https://www.linkedin.com/in/jayank-mayukh"
                                 >
-                                    <Icon fitted color='blue' size='large' name='linkedin' />
+                                    <Icon fitted color="blue" size="large" name="linkedin" />
                                 </a>
                             </MenuItem>
                             <MenuItem fitted>
                                 <a
-                                    target='_blank'
-                                    rel='noopener noreferrer'
-                                    href='https://github.com/jayankmayukh/covid-tracker'
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    href="https://github.com/jayankmayukh/covid-tracker"
                                 >
-                                    <Icon fitted color='black' size='large' name='github' />
+                                    <Icon fitted color="black" size="large" name="github" />
                                 </a>
                             </MenuItem>
                         </MenuMenu>
                     </Fragment>
-                )
-            }
+                ),
+            },
         ]
     }
 
     componentDidMount() {
         let requests = [
-            fetch('.netlify/functions/meta').then(async (data) => {
+            fetch('https://covid-api.jynk.xyz/meta.json').then(async (data) => {
                 window.meta = await data.json()
+                window.countries = Object.keys(window.meta.countries).sort(
+                    (a, b) =>
+                        window.meta.countries[b].total_cases - window.meta.countries[a].total_cases
+                )
             }),
-            fetch('.netlify/functions/countries').then(async (data) => {
-                window.countries = await data.json()
-            })
         ]
         Promise.all(requests).then(() => {
             this.setState({ dataLoaded: true })
@@ -73,12 +74,12 @@ class App extends Component {
 
     render() {
         return (
-            <div className='App'>
+            <div className="App">
                 {this.state.dataLoaded ? (
                     <Fragment>
-                        <Header as='h1' color='grey'>
+                        <Header as="h1" color="grey">
                             <Header.Content>
-                                <Icon name='dashboard' />
+                                <Icon name="dashboard" />
                                 Covid-19 Tracker
                             </Header.Content>
                         </Header>

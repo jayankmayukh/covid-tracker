@@ -19,7 +19,7 @@ import {
     Dimmer,
 } from 'semantic-ui-react'
 
-iso.registerLocale(enLocale);
+iso.registerLocale(enLocale)
 
 export default class Graph extends Component {
     constructor(props) {
@@ -37,13 +37,14 @@ export default class Graph extends Component {
             dataTypeEntries: [],
             formOpen: true,
             loading: false,
+            onSeparateAxis: false,
         }
         this.plotted = []
         this.xAxisDropdownList = [
             { text: 'Days Since First 100 Cases', value: 1 },
             { text: 'Date', value: 0 },
             { text: 'Total Cases (Log Scale) Since First 100 cases', value: 2 },
-            { text: 'Days Since Vaccination Started', value: 3 }
+            { text: 'Days Since Vaccination Started', value: 3 },
         ]
     }
 
@@ -76,15 +77,18 @@ export default class Graph extends Component {
 
     dataTypeEntries() {
         let elemList = []
-        Object.entries(this.helper.getDataTypesDict(this.state.countries)).forEach(([key, name]) => {
-            elemList.push({ text: name, value: key })
-        })
+        Object.entries(this.helper.getDataTypesDict(this.state.countries)).forEach(
+            ([key, name]) => {
+                elemList.push({ text: name, value: key })
+            }
+        )
         this.setState({ dataTypeEntries: elemList })
     }
 
     updateYAxis() {
         let type = this.logCheckbox.checked ? 'logarithmic' : 'linear'
-        this.chart.chart.yAxis[0].update({ type })
+        this.chart.chart.yAxis.forEach((yAxis) => yAxis.update({ type }, false))
+        this.chart.chart.redraw()
     }
 
     componentDidMount() {
@@ -97,6 +101,21 @@ export default class Graph extends Component {
         try {
             let seriesConfig = await this.helper.getSeriesForChart(seriesInput)
             if (seriesConfig.data && seriesConfig.data.length) {
+                if (this.state.onSeparateAxis) {
+                    seriesConfig.yAxis = seriesInput.dataType
+                    if (!this.chart.chart.get(seriesInput.dataType)) {
+                        let name = this.helper.dataTypesDict[seriesInput.dataType]
+                        this.chart.chart.addAxis(
+                            {
+                                ...this.helper.getBasicAxis(name),
+                                id: seriesInput.dataType,
+                                opposite: this.chart.chart.yAxis.length % 2 === 1,
+                            },
+                            false,
+                            false
+                        )
+                    }
+                }
                 this.chart.chart.addSeries(seriesConfig, false)
                 return true
             }
@@ -129,7 +148,7 @@ export default class Graph extends Component {
             this.state.countries,
             this.state.dataTypes,
             this.state.xAxis,
-            this.state.movingAverage ? 1 : 0,
+            this.state.onSeparateAxis ? 1 : 0,
         ])
         let promises = []
         this.state.countries.forEach((country) => {
@@ -138,7 +157,7 @@ export default class Graph extends Component {
                     country,
                     xAxis: this.state.xAxis,
                     dataType,
-                    movingAverage: this.state.movingAverage,
+                    onSeparateAxis: this.state.onSeparateAxis,
                 }
                 promises.push(this.inputToGraph(seriesInput))
             })
@@ -167,7 +186,10 @@ export default class Graph extends Component {
 
     yAxisUpdate(log) {
         this.setState({ log }, () => {
-            this.chart.chart.yAxis[0].update({ type: this.state.log ? 'logarithmic' : 'linear' })
+            this.chart.chart.yAxis.forEach((yAxis) =>
+                yAxis.update({ type: this.state.log ? 'logarithmic' : 'linear' }, false)
+            )
+            this.chart.chart.redraw()
         })
     }
 
@@ -217,7 +239,7 @@ export default class Graph extends Component {
                                     country,
                                     xAxis: input[2],
                                     dataType,
-                                    movingAverage: input[3] ? true : false,
+                                    onSeparateAxis: input[3] ? true : false,
                                 }
                                 promises.push(this.inputToGraph(seriesInput))
                             })
@@ -303,9 +325,11 @@ export default class Graph extends Component {
                             <Grid.Column>
                                 <Checkbox
                                     slider
-                                    label="Smoothen"
+                                    label="Plot On Separate Axis"
                                     onChange={() => {
-                                        this.setState({ movingAverage: !this.state.movingAverage })
+                                        this.setState({
+                                            onSeparateAxis: !this.state.onSeparateAxis,
+                                        })
                                     }}
                                 />
                             </Grid.Column>
