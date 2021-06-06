@@ -1,3 +1,5 @@
+import yaml from 'js-yaml'
+
 export default class Helpers {
     constructor() {
         this.tzOffset = new Date().getTimezoneOffset() * 60 * 1000
@@ -34,11 +36,12 @@ export default class Helpers {
         return types
     }
 
-    async fetchData(country, key, xAxis) {
-        const cacheKey = country + key + xAxis
+    async fetchData(country) {
+        const cacheKey = country
         if (!this.cache[cacheKey] || this.cache[cacheKey].failed) {
-            this.cache[cacheKey] = fetch(`https://covid-api.jynk.xyz/.netlify/functions/timeseries?country=${country}&key=${key}&xAxis=${xAxis}`)
-                .then((data) => data.json())
+            this.cache[cacheKey] = fetch(`${window.DATA_SOURCE}/${country}.yml`)
+                .then((data) => data.text())
+                .then((data) => yaml.load(data))
                 .catch(() => (this.cache[cacheKey].failed = true))
         }
         return this.cache[cacheKey]
@@ -49,7 +52,43 @@ export default class Helpers {
     }
 
     async getSeries(country, key, xAxis) {
-        let series = await this.fetchData(country, key, xAxis)
+        let series = []
+        let countryData = await this.fetchData(country)
+        let isValid = Array.isArray(countryData) && countryData.some((point) => key in point)
+        if (!isValid) {
+            alert(`Error! Try something else.`)
+            throw new Error(JSON.stringify({ country, key }))
+        }
+        if ([1, 2].includes(xAxis)) {
+            countryData = countryData.filter((value) => {
+                return value.total_cases >= 100
+            })
+        }
+        if ([3].includes(xAxis)) {
+            countryData = countryData.filter((value) => {
+                return value.total_vaccinations >= 1
+            })
+        }
+        countryData.forEach((value, i) => {
+            let xVal
+            switch (xAxis) {
+                case 1:
+                    xVal = i
+                    break
+                case 2:
+                    xVal = value.total_cases
+                    break
+                case 3:
+                    xVal = i
+                    break
+                default:
+                    xVal = Date.parse(value.date) - this.tzOffset
+                    break
+            }
+            if (typeof value[key] !== undefined) {
+                series.push([xVal, value[key]])
+            }
+        })
         return series
     }
 

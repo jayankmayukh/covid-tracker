@@ -2,6 +2,7 @@ import React, { Component, Fragment } from 'react'
 import './App.scss'
 import { Header, Icon, Tab, Container, MenuItem, MenuMenu, Loader, Dimmer } from 'semantic-ui-react'
 import Graph from './components/Graph'
+import yaml from 'js-yaml';
 
 class App extends Component {
     constructor(props) {
@@ -56,8 +57,8 @@ class App extends Component {
 
     componentDidMount() {
         let requests = [
-            fetch('https://covid-api.jynk.xyz/meta.json').then(async (data) => {
-                window.meta = await data.json()
+            fetch(window.DATA_SOURCE + '/meta.yml').then(async (data) => {
+                window.meta = yaml.load(await data.text())
                 window.countries = Object.keys(window.meta.countries).sort(
                     (a, b) =>
                         window.meta.countries[b].total_cases - window.meta.countries[a].total_cases

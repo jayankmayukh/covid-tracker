@@ -4,6 +4,11 @@ import * as serviceWorker from './serviceWorker';
 import 'semantic-ui-css/semantic.min.css';
 import routes from './routes';
 
+if (window.location.hostname === 'covid.jaym.app') {
+  window.DATA_SOURCE = 'https://covid-api.jaym.app'
+} else {
+  window.DATA_SOURCE = 'https://covid-api.jynk.xyz'
+}
 ReactDOM.render(
     routes,
   document.getElementById('root')
